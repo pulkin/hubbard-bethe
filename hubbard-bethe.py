@@ -2,6 +2,7 @@
 import numpy
 from matplotlib import pyplot
 
+import json
 
 def solve(q, b, u, n_k=100, n_lambda=100):
     """
@@ -145,26 +146,39 @@ pyplot.xlabel("Particle density")
 pyplot.ylabel("Magnetization")
 pyplot.title("Interpolated")
 
-# Plot ground state energy as a function of particle density for zero magnetization
-# Magnetization becomes zero when the parameter B approaches infinity. Here I set it to a large enough value B=10
-# The second plot displays values of magnetization for this B
 pyplot.subplot(223)
 ax1 = pyplot.gca()
 pyplot.subplot(224)
 ax2 = pyplot.gca()
+with open("plots.json", 'r') as f:
+    dataset = json.load(f)
+# dataset = {}
 for U in (1, 4, 8):
-    energy, magnetization, density = batch(U, b_min=10, b_max=10, nb=1, nq=100, n_lambda=1000)
+    d = dataset[str(U)]
+    # energy, magnetization, density = batch(U, b_min=10, b_max=10, nb=1, nq=100, n_lambda=1000)
+    energy, magnetization, density = map(numpy.array, (d["energy"], d["magnetization"], d["density"]))
+    dEdn = numpy.diff(energy) / numpy.diff(density)
+    ddensity = (density[:-1] + density[1:]) / 2
     ax1.plot(density, -energy, label="U={:d}".format(U))
-    ax2.plot(density, magnetization, label="U={:d}".format(U))
+    ax2.plot(dEdn - U/2, ddensity, label="U={:d}".format(U))
+    dataset[U] = dict(
+        density=density.squeeze().tolist(),
+        energy=energy.squeeze().tolist(),
+        magnetization=magnetization.squeeze().tolist(),
+    )
 ax1.set_xlim(0, 1)
-ax2.set_xlim(0, 1)
+ax2.set_xlim(right=0)
+ax2.set_ylim(0, 1)
 ax1.set_ylim(0, 1.2)
 ax1.grid(ls="--")
+ax2.grid(ls="--")
 ax1.set_xlabel("Particle density")
-ax2.set_xlabel("Particle density")
+ax2.set_xlabel("Chemical potential mu/t - U/2t")
 ax1.set_ylabel("Energy per site -E/t")
-ax2.set_ylabel("Magnetization")
+ax2.set_ylabel("Particle density")
 pyplot.legend()
 
 pyplot.savefig('plot.png')
+with open("plots.json", 'w') as f:
+    json.dump(dataset, f)
 pyplot.show()
